@@ -18,7 +18,7 @@ class Features:
         return holes
             
     @staticmethod
-    def num_rows_with_holes(grid):
+    def rows_with_holes(grid):
         rows_with_holes = np.zeros(grid.shape[0])
         for col in range(grid.shape[1]):
             isFilled = False
@@ -63,7 +63,7 @@ class Features:
         return wells
 
     @staticmethod
-    def num_column_transitions(grid):
+    def column_transitions(grid):
         trans = 0
         for col in range(grid.shape[1]):
             prev = 0 # top is consider empty
@@ -77,7 +77,7 @@ class Features:
         return trans
     
     @staticmethod
-    def num_row_transitions(grid):
+    def row_transitions(grid):
         trans = 0
         for row in range(grid.shape[0]):
             prev = 1 # left is considered filled
@@ -89,3 +89,20 @@ class Features:
                 trans += 1 
         return trans
 
+    @staticmethod
+    def hole_depth(grid):
+        depth = 0
+        for col in range(grid.shape[1]):
+            isFilled = False
+            countFilled = 0
+            for row in range(grid.shape[0]):
+                # update that filled cell exist
+                if grid[row, col] == 1:
+                    isFilled = True
+                    countFilled += 1
+                
+                # only add hole depth if there exist a hole below it
+                if grid[row, col] == 0 and isFilled:
+                    depth += countFilled
+                    countFilled = 0 # reset it
+        return depth

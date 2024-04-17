@@ -22,10 +22,11 @@ for step in range(5000):
     tetris_piece.update()
     if step == 4000:
         print(Features.num_holes(grid))
-        print(Features.num_rows_with_holes(grid))
+        print(Features.rows_with_holes(grid))
         print(Features.cumulative_wells(grid))
-        print(Features.num_column_transitions(grid))
-        print(Features.num_row_transitions(grid))
+        print(Features.column_transitions(grid))
+        print(Features.row_transitions(grid))
+        print(Features.hole_depth(grid))
         print()
 
     env.render()
