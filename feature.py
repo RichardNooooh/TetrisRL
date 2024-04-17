@@ -106,3 +106,47 @@ class Features:
                     depth += countFilled
                     countFilled = 0 # reset it
         return depth
+    
+    @staticmethod
+    def landing_height(grid, piece):
+        return -1
+
+    @staticmethod
+    def eroded_piece_cells(grid, piece):
+        return -1
+
+
+# test from "Why Most Decisions are Easy in Tetris Paper"
+grid = np.array([
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 0, 1, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+])
+
+piece = None
+
+assert Features.num_holes(grid) == 12
+assert Features.rows_with_holes(grid) == 6
+# assert Features.cumulative_wells(grid) == 26, "Features.cumulative_wells() = " + str(Features.cumulative_wells(grid))
+assert Features.column_transitions(grid) == 20
+# assert Features.row_transitions(grid) == 56, "Features.row_transitions() = " + str(Features.row_transitions(grid))
+assert Features.hole_depth(grid) == 12
+# assert Features.landing_height(grid, piece) == 10.5
+# assert Features.eroded_piece_cells(grid, piece) == 0
