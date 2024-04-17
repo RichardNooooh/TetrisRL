@@ -1,7 +1,3 @@
-# from nes_py.wrappers import JoypadSpace
-# import gym_tetris
-# from gym_tetris.actions import MOVEMENT
-# import matplotlib.pyplot as plt
 import numpy as np
 
 TETRIS_TILE_POSITIONS = [
@@ -54,34 +50,19 @@ TETRIS_TILE_TYPES = [
     'Ih'
 ]
 
-
-class TetrisGrid:
-    def __init__(self, env):
-        self.env = env.unwrapped # reference to tetris-gym environment
-        self.grid = np.zeros((22, 10), dtype=np.ubyte) # extra 2 rows for the hidden items
-
-    def get_grid(self):
-        for i in range(20):
-            for j in range(10):
-                self.grid[i+2, j] = 1 if self.env._board[i, j] != 0xEF else 0
-        return self.grid[2:, :]
-
+TETRIS_TILE_ROTATION_TABLE = [
+    
+]
 
 class TetrisPiece:
-    def __init__(self, env):
-        self.env = env.unwrapped
-        self.update()
-
-    def update(self):
-        self.position = (self.env.ram[0x40], self.env.ram[0x41]) 
-        self.type = self.env.ram[0x42]
-
+    def __init__(self):
+        self.position = (0, 0)
+        self.type = 0
+    
     def getPieceType(self):
-        self.update()
         return (self.type, TETRIS_TILE_TYPES[self.type])
     
     def getBasePosition(self):
-        self.update()
         return self.position
     
     def getRelativeTilePositions(self):
@@ -95,9 +76,8 @@ class TetrisPiece:
         return (add_pos(curr_tilerelpos[0]), add_pos(curr_tilerelpos[1]), 
                     add_pos(curr_tilerelpos[2]), add_pos(curr_tilerelpos[3]))
     
-    def getGridAndPiece(self, tetrisgrid):
-        self.update()
-        grid_copy = tetrisgrid.grid.copy()
+    def getGridAndPiece(self, grid):
+        grid_copy = grid.copy()
 
         tile_positions = self.getAbsoluteTilePositions()
         for tile_position in tile_positions:
@@ -106,28 +86,30 @@ class TetrisPiece:
 
         return grid_copy[2:, :]
 
+class CurrentPiece(TetrisPiece):
+    def __init__(self, env):
+        self.env = env.unwrapped
+        self.update()
 
-# env = gym_tetris.make('TetrisA-v3')
-# env = JoypadSpace(env, MOVEMENT)
+    def update(self):
+        self.position = (self.env.ram[0x40], self.env.ram[0x41]) 
+        self.type = self.env.ram[0x42]
 
-# done = True
-# for step in range(48*100):
-#     if done:
-#         state = env.reset()
-#     state, reward, done, info = env.step(env.action_space.sample())
-# # print(env.unwrapped._board)
+class SimulatedPiece(TetrisPiece):
+    def __init__(self, position, type):
+        super().__init__()
+        self.position = position
+        self.type = type
 
-# tetris_grid = TetrisGrid(env)
-# print(tetris_grid.get_grid())
+    def rotateClockWise(self):
+        pass
+    def rotateCounterClockWise(self):
+        pass
+    def translateLeft(self):
+        pass
+    def translateRight(self):
+        pass
+    def incrementDown(self):
+        pass
 
-# tetris_piece = TetrisPiece(env)
-# print(tetris_piece.getPieceType())
-# print(tetris_piece.getBasePosition())
-# print(tetris_piece.getRelativeTilePositions())
-# print(tetris_piece.getAbsoluteTilePositions())
-# piece_and_grid = tetris_piece.getGridAndPiece(tetris_grid)
-# print(piece_and_grid)
-
-# plt.imshow(state)
-# plt.show()
 

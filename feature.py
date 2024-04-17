@@ -1,4 +1,5 @@
 import numpy as np
+from state import TetrisPiece
 
 class Features:
             
@@ -22,8 +23,6 @@ class Features:
         rows_with_holes = np.zeros(grid.shape[0])
         for col in range(grid.shape[1]):
             isFilled = False
-            well_depth = 0
-            prev = 0
             for row in range(grid.shape[0]):
                 # update that filled cell exist
                 if grid[row, col] == 1:
@@ -44,8 +43,8 @@ class Features:
                 if grid[row, col] == 1:
                     isFilled = True
                 # only consider wells if open from above
-                if isFilled:
-                    continue
+                # if isFilled:
+                #     continue
 
                 checkLeftFilled = col == 0 or grid[row, col - 1] == 1
                 checkRightFilled = col == grid.shape[1] - 1 or grid[row, col + 1] == 1
@@ -108,11 +107,33 @@ class Features:
         return depth
     
     @staticmethod
-    def landing_height(grid, piece):
-        return -1
+    def landing_height(grid, piece_positions):
+        # piece is a list of absolute tile positions
+        max_height = -1
+        min_height = 1000000
+        for x, y in piece_positions:
+            current_height = 20 - y
+
+            # find the highest filled tile in this column
+            column = grid[:, x]
+            highest_grid_tile = -1
+            for column_idx, tile in enumerate(column):
+                if tile == 1:
+                    highest_grid_tile = column_idx
+                    break
+
+            grid_tile_height = 20 - highest_grid_tile
+            landing_height = current_height - grid_tile_height
+
+            max_height = np.maximum(landing_height, max_height)
+            min_height = np.minimum(landing_height, min_height)
+
+        return (max_height + min_height) / 2
 
     @staticmethod
-    def eroded_piece_cells(grid, piece):
+    def eroded_piece_cells(grid, piece_positions):
+        
+        
         return -1
 
 
@@ -140,7 +161,7 @@ grid = np.array([
     [0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ])
 
-piece = None
+piece = [(4, 0), (4, 1), (4, 2), (4, 3)]
 
 assert Features.num_holes(grid) == 12
 assert Features.rows_with_holes(grid) == 6
@@ -148,5 +169,5 @@ assert Features.rows_with_holes(grid) == 6
 assert Features.column_transitions(grid) == 20
 # assert Features.row_transitions(grid) == 56, "Features.row_transitions() = " + str(Features.row_transitions(grid))
 assert Features.hole_depth(grid) == 12
-# assert Features.landing_height(grid, piece) == 10.5
+assert Features.landing_height(grid, piece) == 10.5, "Features.landing_height() = " + str(Features.landing_height(grid, piece))
 # assert Features.eroded_piece_cells(grid, piece) == 0
