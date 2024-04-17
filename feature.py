@@ -1,15 +1,12 @@
 import numpy as np
 
 class Features:
-
-    def __init__(self, grid):
-        self.holes = 0
-        self.rows_with_holes = np.zeros(grid.shape[0])
-        self.wells = 0
-
+            
+    @staticmethod
+    def num_holes(grid):
+        holes = 0
         for col in range(grid.shape[1]):
             isFilled = False
-            well_depth = 0
             for row in range(grid.shape[0]):
                 # update that filled cell exist
                 if grid[row, col] == 1:
@@ -17,14 +14,39 @@ class Features:
                 
                 # all cells under filled cell counted as hole
                 if grid[row, col] == 0 and isFilled:
-                    self.holes += 1
-                    self.rows_with_holes[row] = 1
+                    holes += 1
+        return holes
+            
+    @staticmethod
+    def num_rows_with_holes(grid):
+        rows_with_holes = np.zeros(grid.shape[0])
+        for col in range(grid.shape[1]):
+            isFilled = False
+            well_depth = 0
+            prev = 0
+            for row in range(grid.shape[0]):
+                # update that filled cell exist
+                if grid[row, col] == 1:
+                    isFilled = True
                 
+                # all cells under filled cell counted as hole
+                if grid[row, col] == 0 and isFilled:
+                    rows_with_holes[row] = 1
+        return np.sum(rows_with_holes).astype(int)
+    
+    @staticmethod
+    def cumulative_wells(grid):
+        wells = 0
+        for col in range(grid.shape[1]):
+            isFilled = False
+            well_depth = 0
+            for row in range(grid.shape[0]):
+                if grid[row, col] == 1:
+                    isFilled = True
+                # only consider wells if open from above
                 if isFilled:
-                    # only consider wells if open from above
                     continue
 
-                # check if it is a well by looking at left neighbor and right neighbor
                 checkLeftFilled = col == 0 or grid[row, col - 1] == 1
                 checkRightFilled = col == grid.shape[1] - 1 or grid[row, col + 1] == 1
                 if grid[row, col] == 0 and checkLeftFilled and checkRightFilled:
@@ -33,22 +55,37 @@ class Features:
                     # no more well, add current depth and reset
                     for x in range(1, well_depth + 1):
                         # add depth by 1 + 2 + ... + depth
-                        self.wells += x
+                        wells += x
                     well_depth = 0
-            
             # reach the bottom, add remaining well_depth
             for x in range(1, well_depth + 1):
-                self.wells += x
-            
-            
+                wells += x
+        return wells
 
-    def num_holes(self):
-        return self.holes
-            
-    def num_rows_with_holes(self):
-        return np.sum(self.rows_with_holes).astype(int)
+    @staticmethod
+    def num_column_transitions(grid):
+        trans = 0
+        for col in range(grid.shape[1]):
+            prev = 0 # top is consider empty
+            for row in range(grid.shape[0]):
+                if grid[row, col] != prev:
+                    trans += 1
+                    prev = grid[row, col]
+            # bottom of the grid is considered filled, count extra transition if bottom is empty
+            if prev == 0:
+                trans += 1
+        return trans
     
-    def cumulative_wells(self):
-        return self.wells
-
+    @staticmethod
+    def num_row_transitions(grid):
+        trans = 0
+        for row in range(grid.shape[0]):
+            prev = 1 # left is considered filled
+            for col in range(grid.shape[1]):
+                if grid[row, col] != prev:
+                    trans += 1
+                    prev = grid[row, col]
+            if prev == 0: # right is considered filled
+                trans += 1 
+        return trans
 
