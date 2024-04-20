@@ -6,23 +6,45 @@ import numpy as np
 from tetrispiece import TetrisPiece, SimulatedPiece
 from tetrisgrid import TetrisGrid, SimulatedGrid
 from feature import Features
-from interface import NESTetrisEnvInterface
+from interface import NESTetrisEnvInterface, OneStepSearch
+
+def action_to_byte(action):
+    NES_ACTION_ARRAY = ['A', 'B', 'select', 'start', 'up', 'down', 'left', 'right']
+    def set_bit(byte, index):
+        if index < 0 or index > 7:
+            raise ValueError("Index not correct in action_to_byte()")
+        byte[0] |= 1 << index
+
+    action_byte = bytearray([0])
+
+    if action == SIMPLE_MOVEMENT[0]: # NOOP
+        return action_byte
+    
+    for button in action:
+        bit_index = NES_ACTION_ARRAY.index(button)
+        set_bit(action_byte, bit_index)
+
+    return action_byte[0]
 
 
 if __name__ == "__main__":
     env = NESTetrisEnvInterface("TetrisA-v3", SIMPLE_MOVEMENT)
     
+    done = True
+    for step in range(50000):
+        if done:
+            grid, piece_pos, piece_data = env.reset()
 
+        next_states = OneStepSearch.getNextStates(grid, SimulatedPiece(piece_data[0], piece_data[1], piece_data[2], None))
+        best_action = OneStepSearch.evaluateStates(grid, next_states)
 
+        byte_action = action_to_byte(best_action)
+        (grid, piece_pos, piece_data), reward, done, info = env.step(byte_action)
 
+        env.render()
 
-
-
-
-
-
-
-
+    env.close()
+    
 
 
 # env = gym_tetris.make('TetrisA-v3')

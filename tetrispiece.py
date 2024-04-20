@@ -94,18 +94,20 @@ class CurrentPiece(TetrisPiece):
 
     def update(self):
         self.position = (self.env.ram[0x40], self.env.ram[0x41]) 
-        self.type, self.orientation = TETRIS_TYPE_ORIENTATION_MAP.values[self.env.ram[0x42]]
+        self.type, self.orientation = list(TETRIS_TYPE_ORIENTATION_MAP.values())[self.env.ram[0x42]]
 
 class SimulatedPiece(TetrisPiece):
-    def __init__(self, position, type, orientation):
+    def __init__(self, position, type, orientation, action):
         super().__init__()
         self.position = position
         self.type = type
         self.orientation = orientation
 
+        self.action = action
+
         # used to obtain the trajectory of the piece
-        self.prev = None
-        self.visited = None
+        # self.prev = None
+        # self.visited = None
 
     # def rotateClockWise(self):
     #     pass

@@ -1,8 +1,10 @@
 from nes_py.wrappers import JoypadSpace
 import gym_tetris
+from gym_tetris.actions import SIMPLE_MOVEMENT
 from tetrispiece import TetrisPiece, CurrentPiece, SimulatedPiece, TETRIS_NUM_ORIENTATIONS
 from tetrisgrid import TetrisGrid, CurrentGrid, SimulatedGrid
 from queue import Queue
+from feature import Features
 
 class NESTetrisEnvInterface():
     def __init__(self, tetris_type, movement_type):
@@ -15,8 +17,8 @@ class NESTetrisEnvInterface():
 
         self.tetris_piece.update()
         piece_tile_positions = self.tetris_piece.getAbsoluteTilePositions()
-        piece_position, piece_type = self.tetris_piece.getBasePosition(), self.tetris_piece.getPieceType()
-        return (grid, piece_tile_positions, (piece_position, piece_type))
+        raw_piece_data = self.tetris_piece.position, self.tetris_piece.type, self.tetris_piece.orientation
+        return (grid, piece_tile_positions, raw_piece_data)
 
     # ********************************
     # * gym_tetris Interface Methods *
@@ -37,6 +39,73 @@ class NESTetrisEnvInterface():
     def close(self):
         return self.env.close()
     
+
+class OneStepSearch:
+    @staticmethod
+    def getNextStates(grid, simulated_piece):
+        x, y = simulated_piece.position
+        piece_type, piece_orientation = simulated_piece.type, simulated_piece.orientation
+
+        next_pieces = []
+
+        # get translations
+        next_pieces.append(SimulatedPiece((x + 1, y), piece_type, piece_orientation, SIMPLE_MOVEMENT[3]))
+        next_pieces.append(SimulatedPiece((x - 1, y), piece_type, piece_orientation, SIMPLE_MOVEMENT[4]))
+        next_pieces.append(SimulatedPiece((x, y - 1), piece_type, piece_orientation, SIMPLE_MOVEMENT[5]))
+
+        max_rotations = TETRIS_NUM_ORIENTATIONS[piece_type] - 1
+
+        # get rotations
+        if max_rotations != 0:
+            next_pieces.append(SimulatedPiece((x, y), piece_type, max_rotations if piece_orientation == 0 else piece_orientation - 1, SIMPLE_MOVEMENT[1]))
+            if max_rotations != 1:
+                next_pieces.append(SimulatedPiece((x, y), piece_type, 0 if piece_orientation == max_rotations else piece_orientation + 1, SIMPLE_MOVEMENT[2]))
+
+        # see if these positions are valid or not
+        valid_piece_candidates = []
+        for piece in next_pieces:
+            next_x, next_y = piece.position
+            in_grid_bounds = next_x < 0 or next_x >= len(grid[0]) or next_y >= len(grid)
+            
+            fits_grid_tiles = True
+            tile_positions = piece.getAbsoluteTilePositions()
+            for tile_position in tile_positions:
+                if grid[tile_position[1], tile_position[0]] == 1:
+                    fits_grid_tiles = False
+                    break
+            
+            if in_grid_bounds and fits_grid_tiles:
+                valid_piece_candidates.append(piece)
+        
+        return valid_piece_candidates
+
+
+    @staticmethod
+    def evaluateGrid(grid, piece_positions):
+        landing_height = Features.landing_height(grid, piece_positions)
+        eroded_piece_cells = Features.eroded_piece_cells(grid, piece_positions)
+        row_transitions = Features.row_transitions(grid)
+        col_transitions = Features.column_transitions(grid)
+        holes = Features.num_holes(grid)
+        cumulative_wells = Features.cumulative_wells(grid)
+        return -landing_height + eroded_piece_cells - row_transitions - col_transitions - (4 * holes) - cumulative_wells
+    
+    @staticmethod
+    def evaluateStates(grid, piece_candidates):
+        if len(piece_candidates) == 0:
+            return SIMPLE_MOVEMENT[0]
+
+        best_state_action = None
+        best_state_action_value = float('-inf')
+        for piece in piece_candidates:
+            state_action_value = OneStepSearch.evaluateGrid(grid, piece.getAbsoluteTilePositions())
+            if state_action_value > best_state_action_value:
+                best_state_action = piece.action
+                best_state_action_value = state_action_value
+
+        return best_state_action
+            
+        
 
 # class SearchingUtil:
 

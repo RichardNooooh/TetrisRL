@@ -132,9 +132,16 @@ class Features:
 
     @staticmethod
     def eroded_piece_cells(grid, piece_positions):
+        unique_y_values = set()
+        for x, y in piece_positions:
+            unique_y_values.add(y)
+
+        total_eroded_lines = 0
+        for y in unique_y_values:
+            if sum(grid[y, :]) == len(grid[0]):
+                total_eroded_lines += 1
         
-        
-        return -1
+        return total_eroded_lines
 
 
 # test from "Why Most Decisions are Easy in Tetris Paper"
@@ -170,4 +177,4 @@ assert Features.column_transitions(grid) == 20
 # assert Features.row_transitions(grid) == 56, "Features.row_transitions() = " + str(Features.row_transitions(grid))
 assert Features.hole_depth(grid) == 12
 assert Features.landing_height(grid, piece) == 10.5, "Features.landing_height() = " + str(Features.landing_height(grid, piece))
-# assert Features.eroded_piece_cells(grid, piece) == 0
+assert Features.eroded_piece_cells(grid, piece) == 0
