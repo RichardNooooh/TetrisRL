@@ -79,6 +79,7 @@ class Features:
     def row_transitions(grid):
         trans = 0
         for row in range(grid.shape[0]):
+            
             prev = 1 # left is considered filled
             for col in range(grid.shape[1]):
                 if grid[row, col] != prev:

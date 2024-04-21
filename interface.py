@@ -6,11 +6,21 @@ from tetrisgrid import TetrisGrid, CurrentGrid, SimulatedGrid
 from queue import Queue
 from feature import Features
 
+SIMPLE_MOVEMENT_DICT = {
+    'NOOP': 0,
+    'A': 1,
+    'B': 2,
+    'right': 3,
+    'left': 4,
+    'down': 5,
+}
+
 class NESTetrisEnvInterface():
     def __init__(self, tetris_type, movement_type):
         self.env = JoypadSpace(gym_tetris.make(tetris_type), movement_type)
         self.tetris_grid = CurrentGrid(self.env)
         self.tetris_piece = CurrentPiece(self.env)
+        self.action_map = self.env.get_keys_to_action()
 
     def getState(self):
         grid = self.tetris_grid.get_grid()
@@ -19,6 +29,9 @@ class NESTetrisEnvInterface():
         piece_tile_positions = self.tetris_piece.getAbsoluteTilePositions()
         raw_piece_data = self.tetris_piece.position, self.tetris_piece.type, self.tetris_piece.orientation
         return (grid, piece_tile_positions, raw_piece_data)
+    
+    def getActions(self):
+        return self.action_map
 
     # ********************************
     # * gym_tetris Interface Methods *
@@ -31,6 +44,7 @@ class NESTetrisEnvInterface():
     def step(self, action):
         # gym_tetris's state variable is just the NES screen - not useful for features except for Deep RL agents
         _, reward, done, info = self.env.step(action)
+        self.env.step(0)
         return self.getState(), reward, done, info
     
     def render(self):
@@ -49,27 +63,35 @@ class OneStepSearch:
         next_pieces = []
 
         # get translations
-        next_pieces.append(SimulatedPiece((x + 1, y), piece_type, piece_orientation, SIMPLE_MOVEMENT[3]))
-        next_pieces.append(SimulatedPiece((x - 1, y), piece_type, piece_orientation, SIMPLE_MOVEMENT[4]))
-        next_pieces.append(SimulatedPiece((x, y - 1), piece_type, piece_orientation, SIMPLE_MOVEMENT[5]))
+        next_pieces.append(SimulatedPiece((x + 1, y), piece_type, piece_orientation, SIMPLE_MOVEMENT_DICT['right']))
+        next_pieces.append(SimulatedPiece((x - 1, y), piece_type, piece_orientation, SIMPLE_MOVEMENT_DICT['left']))
+        next_pieces.append(SimulatedPiece((x, y - 1), piece_type, piece_orientation, SIMPLE_MOVEMENT_DICT['down']))
 
         max_rotations = TETRIS_NUM_ORIENTATIONS[piece_type] - 1
 
         # get rotations
         if max_rotations != 0:
-            next_pieces.append(SimulatedPiece((x, y), piece_type, max_rotations if piece_orientation == 0 else piece_orientation - 1, SIMPLE_MOVEMENT[1]))
+            next_pieces.append(SimulatedPiece((x, y), piece_type, 
+                                              max_rotations if piece_orientation == 0 else piece_orientation - 1, 
+                                              SIMPLE_MOVEMENT_DICT['B'])) # counterclockwise
             if max_rotations != 1:
-                next_pieces.append(SimulatedPiece((x, y), piece_type, 0 if piece_orientation == max_rotations else piece_orientation + 1, SIMPLE_MOVEMENT[2]))
+                next_pieces.append(SimulatedPiece((x, y), piece_type, 
+                                                    0 if piece_orientation == max_rotations else piece_orientation + 1, 
+                                                    SIMPLE_MOVEMENT_DICT['A'])) # clockwise
 
         # see if these positions are valid or not
         valid_piece_candidates = []
         for piece in next_pieces:
-            next_x, next_y = piece.position
-            in_grid_bounds = next_x < 0 or next_x >= len(grid[0]) or next_y >= len(grid)
-            
+            in_grid_bounds = True
             fits_grid_tiles = True
             tile_positions = piece.getAbsoluteTilePositions()
             for tile_position in tile_positions:
+                tile_x, tile_y = tile_position
+                # garbage code
+                if tile_x >= 0 and tile_x < len(grid[0]) and tile_y < len(grid):
+                    in_grid_bounds = False
+                    break
+
                 if grid[tile_position[1], tile_position[0]] == 1:
                     fits_grid_tiles = False
                     break
@@ -79,21 +101,25 @@ class OneStepSearch:
         
         return valid_piece_candidates
 
-
+    # * Note: Can move these two methods out to something else...
     @staticmethod
-    def evaluateGrid(grid, piece_positions):
+    def evaluateGrid(grid, piece_positions): # BCTS evaluation metric
         landing_height = Features.landing_height(grid, piece_positions)
         eroded_piece_cells = Features.eroded_piece_cells(grid, piece_positions)
         row_transitions = Features.row_transitions(grid)
         col_transitions = Features.column_transitions(grid)
         holes = Features.num_holes(grid)
         cumulative_wells = Features.cumulative_wells(grid)
-        return -landing_height + eroded_piece_cells - row_transitions - col_transitions - (4 * holes) - cumulative_wells
+        hole_depth = Features.hole_depth(grid)
+        rows_with_holes = Features.rows_with_holes(grid)
+        return -12.63*landing_height + 6.60*eroded_piece_cells - 9.22*row_transitions \
+                - 19.77*col_transitions - 13.08*holes - 10.49*cumulative_wells -1.61*hole_depth \
+                -24.04*rows_with_holes
     
     @staticmethod
     def evaluateStates(grid, piece_candidates):
         if len(piece_candidates) == 0:
-            return SIMPLE_MOVEMENT[0]
+            return 0
 
         best_state_action = None
         best_state_action_value = float('-inf')
