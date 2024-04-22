@@ -1,3 +1,4 @@
+from enum import Enum
 import numpy as np
 
 # positions based on NES Tetris
@@ -32,6 +33,12 @@ TETRIS_TILE_POSITIONS = {
 TETRIS_NUM_ORIENTATIONS = {
     'T': 4, 'J': 4, 'Z': 2, 'O': 1, 'S': 2, 'L': 4, 'I': 2
 }
+
+TETRIS_DEFAULT_ORIENTATIONS = {
+    'T': 2, 'J': 3, 'Z': 0, 'O': 0, 'S': 0, 'L': 1, 'I': 1
+}
+
+ACTION = Enum('ACTION', ["ROTATE_CW", "ROTATE_CCW", "MOVE_RIGHT", "MOVE_LEFT", "SOFT_DROP"])
 
 class Tetrimino:
     def __init__(self, piece_type, position=(5, 0), orientation=0):
@@ -68,6 +75,30 @@ class Tetrimino:
             self.position = new_position
             return True
         return False # boolean determines whether or not piece is placed in board
+    
+    @staticmethod
+    def transform(tetrimino, board, action):
+        piece_type, new_position, new_orientation = tetrimino.getState()
+
+        match action:
+            case ACTION.MOVE_LEFT:
+                new_position = (new_position[0] - 1, new_position[1])
+            case ACTION.MOVE_RIGHT:
+                new_position = (new_position[0] + 1, new_position[1])
+            case ACTION.ROTATE_CCW:
+                new_orientation = (new_orientation - 1) % TETRIS_NUM_ORIENTATIONS[piece_type]
+            case ACTION.ROTATE_CW:
+                new_orientation = (new_orientation + 1) % TETRIS_NUM_ORIENTATIONS[piece_type]
+            case ACTION.SOFT_DROP:
+                new_position = (new_position[0], new_position[1] + 1)
+            case _:
+                raise RuntimeError("Tetrimino.transform() received an unknown action: " + str(action))
+            
+        if Tetrimino.isValidMove(board, piece_type, new_position, new_orientation):
+            tetrimino.position = new_position
+            tetrimino.orientation = new_orientation
+            return True
+        return False
 
     @staticmethod
     def isValidMove(board, piece_type, position, orientation):
@@ -108,7 +139,7 @@ class TetrisBoard:
 
         # iterate bottom up
         for y in range(self.height - 1, -1, -1):
-            num_tiles_in_row = np.sum(self.board[y, :])
+            num_tiles_in_row = np.sum(self.board[y + 2, :])
 
             # if the row is empty, then the playfield above should be empty
             if num_tiles_in_row == 0:
@@ -119,10 +150,10 @@ class TetrisBoard:
                 lines_cleared += 1
             # we are at a line that nonempty and not complete, and we have completed lines below us.
             elif lines_cleared > 0:
-                self.board[y + lines_cleared, :] = self.board[y]
+                self.board[y + lines_cleared + 2, :] = self.board[y + 2]
 
         # clear the rows above the cleared board
-        self.board[:(y + lines_cleared + 1), :] = 0
+        self.board[:(y + lines_cleared + 3), :] = 0
 
         return lines_cleared
 
@@ -142,7 +173,7 @@ class TetrisBoard:
 
         print(board_copy[2:, :])
 
-# Example of usage
+# # Example of usage
 # board = TetrisBoard()
 # board.board = np.array(
 # [[0,0,0,0,0,0,0,0,0,0],
@@ -152,24 +183,67 @@ class TetrisBoard:
 #  [0,0,0,0,0,0,0,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
-#  [0,0,0,0,0,1,0,0,0,0],
-#  [0,0,0,0,1,1,1,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
 #  [0,0,0,0,0,0,0,0,0,0],
-#  [1,1,0,0,0,0,0,0,0,0],
-#  [1,1,0,0,0,0,0,1,0,0],
-#  [1,0,0,0,0,0,0,1,0,1],
-#  [1,0,1,0,0,0,1,1,1,1],
-#  [1,1,1,0,1,0,1,1,1,1],
+#  [0,0,0,0,0,0,1,0,0,0],
+#  [0,1,1,1,1,1,1,0,0,0],
+#  [1,1,1,1,1,1,1,0,0,0],
+#  [1,1,1,1,1,1,1,0,0,0],
+#  [1,1,1,0,1,1,1,0,0,0],
+#  [1,0,1,0,1,1,1,0,0,0],
+#  [1,1,1,1,1,1,1,1,1,1],
+#  [1,1,1,1,1,1,1,1,1,1],
+#  [1,1,1,1,1,1,1,1,1,1],
 #  [1,1,1,1,1,1,1,1,1,1]]
 # )
 # board.display()
 # board.clearLines()
 # board.display()
 
+# TODO action mapping
 
+class TetrisEnv:
+    def __init__(self):
+        self.board = TetrisBoard()
+        self.current_piece, self.next_piece = self.spawnNewPiece(), self.spawnNewPiece()
+        self.game_over = False
 
+    def spawnNewPiece(self):
+        piece_type = np.random.choice(('T', 'J', 'Z', 'O', 'S', 'L', 'I'))
+        return Tetrimino(piece_type, orientation=TETRIS_DEFAULT_ORIENTATIONS[piece_type])
+    
+    def reset(self):
+        self.board.reset()
+        self.current_piece, self.next_piece = self.spawnNewPiece(), self.spawnNewPiece()
+        self.game_over = False
+
+        return self.board, self.current_piece, self.next_piece
+    
+    def display(self):
+        self.board.displayWithPiece(self.current_piece)
+
+    # similar to OpenAI's gym interface
+    def step(self, action):
+        if self.game_over:
+            raise RuntimeError("TetrisEnv.step() was called without resetting the environment.")
+        
+        piece_transformed = Tetrimino.transform(self.current_piece, self.board, action)
+        if not piece_transformed and action == ACTION.SOFT_DROP:
+            self.board.placePiece(self.current_piece)
+            cleared_lines = self.board.clearLines()
+            print(cleared_lines)
+            
+            self.current_piece = self.next_piece
+            self.next_piece = self.spawnNewPiece()
+
+            if not self.board.canPlace(self.current_piece):
+                self.game_over = True # TODO reward function
+                return (self.board, self.current_piece, self.next_piece), None, self.game_over
+            
+            return (self.board, self.current_piece, self.next_piece), None, self.game_over
+        
+        return (self.board, self.current_piece, self.next_piece), None, self.game_over
 
