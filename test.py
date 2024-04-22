@@ -1,8 +1,12 @@
 import random
 from tetris import TetrisBoard, Tetrimino, TetrisEnv, ACTION
+from tetrisgui import TetrisGUI
 
 def runTetrisGame():
     env = TetrisEnv()
+    gui = TetrisGUI()
+    gui.linkGameEnv(env)
+    gui.runOnce()
 
     game_over = False
     while not game_over:
@@ -12,9 +16,9 @@ def runTetrisGame():
         action = getNextCommand()
         if action is None:
             continue
-        
+
         (board, current_piece, next_piece), reward, game_over = env.step(action)
-        board.displayWithPiece(current_piece)
+        gui.draw()
 
 def getNextCommand():
     command_map = {

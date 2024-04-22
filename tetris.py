@@ -110,6 +110,10 @@ class Tetrimino:
     def getPositions(piece_type, position, orientation):
         offsets = TETRIS_TILE_POSITIONS[(piece_type, orientation)]
         return tuple((position[0] + dx, position[1] + dy) for dx, dy in offsets)
+    
+    @staticmethod
+    def getRelativePositions(piece_type, orientation):
+        return TETRIS_TILE_POSITIONS[(piece_type, orientation)]
 
 
 class TetrisBoard:
@@ -203,13 +207,14 @@ class TetrisBoard:
 # board.clearLines()
 # board.display()
 
-# TODO action mapping
-
 class TetrisEnv:
     def __init__(self):
         self.board = TetrisBoard()
         self.current_piece, self.next_piece = self.spawnNewPiece(), self.spawnNewPiece()
         self.game_over = False
+
+    def getEnvState(self):
+        return self.board, self.current_piece, self.next_piece
 
     def spawnNewPiece(self):
         piece_type = np.random.choice(('T', 'J', 'Z', 'O', 'S', 'L', 'I'))
@@ -241,9 +246,9 @@ class TetrisEnv:
 
             if not self.board.canPlace(self.current_piece):
                 self.game_over = True # TODO reward function
-                return (self.board, self.current_piece, self.next_piece), None, self.game_over
+                return self.getEnvState(), None, self.game_over
             
-            return (self.board, self.current_piece, self.next_piece), None, self.game_over
+            return self.getEnvState(), None, self.game_over
         
-        return (self.board, self.current_piece, self.next_piece), None, self.game_over
+        return self.getEnvState(), None, self.game_over
 
