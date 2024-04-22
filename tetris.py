@@ -1,5 +1,7 @@
 from enum import Enum
 import numpy as np
+from collections import deque
+from copy import deepcopy
 
 # positions based on NES Tetris
 TETRIS_TILE_POSITIONS = {
@@ -46,35 +48,15 @@ class Tetrimino:
         self.position = position
         self.orientation = orientation
 
+    # __hash__ and __eq__ used for BFS
+    def __hash__(self):
+        return hash((self.position, self.orientation))
+
+    def __eq__(self, other):
+        return (self.position, self.orientation) == (other.position, other.orientation)
+
     def getState(self):
         return self.piece_type, self.position, self.orientation
-
-    def rotateCW(self, board):
-        new_orientation = (self.orientation + 1) % TETRIS_NUM_ORIENTATIONS[self.piece_type]
-        if Tetrimino.isValidMove(board, self.piece_type, self.position, new_orientation):
-            self.orientation = new_orientation
-
-    def rotateCCW(self, board):
-        new_orientation = (self.orientation - 1) % TETRIS_NUM_ORIENTATIONS[self.piece_type]
-        if Tetrimino.isValidMove(board, self.piece_type, self.position, new_orientation):
-            self.orientation = new_orientation
-
-    def moveLeft(self, board):
-        new_position = (self.position[0] - 1, self.position[1])
-        if Tetrimino.isValidMove(board, self.piece_type, new_position, self.orientation):
-            self.position = new_position
-
-    def moveRight(self, board):
-        new_position = (self.position[0] + 1, self.position[1])
-        if Tetrimino.isValidMove(board, self.piece_type, new_position, self.orientation):
-            self.position = new_position
-
-    def moveDown(self, board):
-        new_position = (self.position[0], self.position[1] + 1)
-        if Tetrimino.isValidMove(board, self.piece_type, new_position, self.orientation):
-            self.position = new_position
-            return True
-        return False # boolean determines whether or not piece is placed in board
     
     @staticmethod
     def transform(tetrimino, board, action):
@@ -173,7 +155,7 @@ class TetrisBoard:
         tile_positions = Tetrimino.getPositions(*piece.getState())
         for tile_position in tile_positions:
             tile_x, tile_y = tile_position
-            board_copy[tile_y+2, tile_x] = 1
+            board_copy[tile_y+2, tile_x] = 2
 
         print(board_copy[2:, :])
 
@@ -207,6 +189,11 @@ class TetrisBoard:
 # board.clearLines()
 # board.display()
 
+class BFSNode:
+    def __init__(self, tetrimino, actions):
+        self.tetrimino = tetrimino
+        self.actions = actions
+
 class TetrisEnv:
     def __init__(self):
         self.board = TetrisBoard()
@@ -230,6 +217,34 @@ class TetrisEnv:
     def display(self):
         self.board.displayWithPiece(self.current_piece)
 
+    def onePieceSearch(start_tetrimino, board): # TODO maybe add twoPieceSearch at some point
+        visited = set()
+        queue = deque([BFSNode(deepcopy(start_tetrimino), [])])
+        landing_positions = []
+
+        while len(queue) > 0:
+            current_node = queue.popleft()
+            current_state = current_node.tetrimino
+
+            if current_state in visited:
+                continue
+            visited.add(current_state)
+
+            # Check if this position is a landing position
+            if not Tetrimino.isValidMove(board, current_state.piece_type, 
+                                        (current_state.position[0], current_state.position[1] + 1), 
+                                        current_state.orientation):
+                landing_positions.append((current_state, current_node.actions))
+
+            # enqueue next actions
+            for action in ACTION:
+                new_tetrimino = deepcopy(current_node.tetrimino)  # Start with a fresh copy for each action
+                new_actions = current_node.actions + [action]
+                if Tetrimino.transform(new_tetrimino, board, action):
+                    queue.append(BFSNode(new_tetrimino, new_actions))
+
+        return landing_positions
+
     # similar to OpenAI's gym interface
     def step(self, action):
         if self.game_over:
@@ -251,4 +266,49 @@ class TetrisEnv:
             return self.getEnvState(), None, self.game_over
         
         return self.getEnvState(), None, self.game_over
+
+
+
+# Example usage:
+# Assuming we have a TetrisBoard object `board` and a Tetrimino object `current_tetrimino`
+# env = TetrisEnv()
+# (board, current_piece, next_piece) = env.reset()
+
+# board.board = np.array(
+# [[0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,0,0,0,0],
+#  [0,0,0,0,0,0,1,0,0,0],
+#  [0,1,1,1,1,1,1,0,0,0],
+#  [1,1,1,1,1,1,0,0,0,0],
+#  [1,1,1,1,0,0,0,0,0,0],
+#  [1,1,1,0,0,0,0,0,0,0],
+#  [1,0,1,0,1,1,1,1,0,0],]
+# )
+
+# current_piece.piece_type = 'T'
+
+# landing_positions = onePieceSearch(current_piece, board)
+
+# print(current_piece)
+
+# for landing_position in landing_positions:
+#     print("Landing Position:")
+#     print("Path = ", landing_position[1])
+#     board.displayWithPiece(landing_position[0])
+
+#     print()
 

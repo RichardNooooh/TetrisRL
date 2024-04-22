@@ -9,6 +9,7 @@ def runTetrisGame():
     gui.runOnce()
 
     game_over = False
+    (board, current_piece, next_piece) = env.reset()
     while not game_over:
         if game_over:
             (board, current_piece, next_piece) = env.reset()
