@@ -1,52 +1,58 @@
 import numpy as np
+from copy import deepcopy
+from tetris import TetrisBoard, Tetrimino
+from collections import defaultdict 
 
 class Features:
-    @staticmethod
-    def num_holes(grid):
+    def __init__(self, board, propose_piece):
+        board = deepcopy(board)
+        board.placePiece(propose_piece)
+        self.grid = board.board
+        self.piece = propose_piece
+
+    def num_holes(self):
         holes = 0
-        for col in range(grid.shape[1]):
+        for col in range(self.grid.shape[1]):
             isFilled = False
-            for row in range(grid.shape[0]):
+            for row in range(2, self.grid.shape[0]):
                 # update that filled cell exist
-                if grid[row, col] == 1:
+                if self.grid[row, col] == 1:
                     isFilled = True
                 
                 # all cells under filled cell counted as hole
-                if grid[row, col] == 0 and isFilled:
+                if self.grid[row, col] == 0 and isFilled:
                     holes += 1
         return holes
             
-    @staticmethod
-    def rows_with_holes(grid):
-        rows_with_holes = np.zeros(grid.shape[0])
-        for col in range(grid.shape[1]):
+    def rows_with_holes(self):
+        rows_with_holes = np.zeros(self.grid.shape[0])
+        for col in range(self.grid.shape[1]):
             isFilled = False
-            for row in range(grid.shape[0]):
+            for row in range(2, self.grid.shape[0]):
                 # update that filled cell exist
-                if grid[row, col] == 1:
+                if self.grid[row, col] == 1:
                     isFilled = True
                 
                 # all cells under filled cell counted as hole
-                if grid[row, col] == 0 and isFilled:
+                if self.grid[row, col] == 0 and isFilled:
                     rows_with_holes[row] = 1
         return np.sum(rows_with_holes).astype(int)
     
-    @staticmethod
-    def cumulative_wells(grid):
+    def cumulative_wells(self):
         wells = 0
-        for col in range(grid.shape[1]):
+        for col in range(self.grid.shape[1]):
             isFilled = False
             well_depth = 0
-            for row in range(grid.shape[0]):
-                if grid[row, col] == 1:
+            for row in range(2, self.grid.shape[0]):
+                if self.grid[row, col] == 1:
                     isFilled = True
                 # only consider wells if open from above
                 # if isFilled:
                 #     continue
 
-                checkLeftFilled = col == 0 or grid[row, col - 1] == 1
-                checkRightFilled = col == grid.shape[1] - 1 or grid[row, col + 1] == 1
-                if grid[row, col] == 0 and checkLeftFilled and checkRightFilled:
+                checkLeftFilled = col == 0 or self.grid[row, col - 1] == 1
+                checkRightFilled = col == self.grid.shape[1] - 1 or self.grid[row, col + 1] == 1
+                if self.grid[row, col] == 0 and checkLeftFilled and checkRightFilled:
                     well_depth += 1
                 else:
                     # no more well, add current depth and reset
@@ -59,121 +65,105 @@ class Features:
                 wells += x
         return wells
 
-    @staticmethod
-    def column_transitions(grid):
+    def column_transitions(self):
         trans = 0
-        for col in range(grid.shape[1]):
+        for col in range(self.grid.shape[1]):
             prev = 0 # top is consider empty
-            for row in range(grid.shape[0]):
-                if grid[row, col] != prev:
+            for row in range(2, self.grid.shape[0]):
+                if self.grid[row, col] != prev:
                     trans += 1
-                    prev = grid[row, col]
-            # bottom of the grid is considered filled, count extra transition if bottom is empty
+                    prev = self.grid[row, col]
+            # bottom of the self.grid is considered filled, count extra transition if bottom is empty
             if prev == 0:
                 trans += 1
         return trans
     
-    @staticmethod
-    def row_transitions(grid):
+    def row_transitions(self):
         trans = 0
-        for row in range(grid.shape[0]):
-            
+        for row in range(2, self.grid.shape[0]):
             prev = 1 # left is considered filled
-            for col in range(grid.shape[1]):
-                if grid[row, col] != prev:
+            for col in range(self.grid.shape[1]):
+                if self.grid[row, col] != prev:
                     trans += 1
-                    prev = grid[row, col]
+                    prev = self.grid[row, col]
             if prev == 0: # right is considered filled
                 trans += 1 
         return trans
 
-    @staticmethod
-    def hole_depth(grid):
+    def hole_depth(self):
         depth = 0
-        for col in range(grid.shape[1]):
+        for col in range(self.grid.shape[1]):
             isFilled = False
             countFilled = 0
-            for row in range(grid.shape[0]):
+            for row in range(2, self.grid.shape[0]):
                 # update that filled cell exist
-                if grid[row, col] == 1:
+                if self.grid[row, col] == 1:
                     isFilled = True
                     countFilled += 1
                 
                 # only add hole depth if there exist a hole below it
-                if grid[row, col] == 0 and isFilled:
+                if self.grid[row, col] == 0 and isFilled:
                     depth += countFilled
                     countFilled = 0 # reset it
         return depth
     
-    @staticmethod
-    def landing_height(grid, piece_positions):
-        # piece is a list of absolute tile positions
-        max_height = -1
-        min_height = 1000000
-        for x, y in piece_positions:
-            current_height = 20 - y
+    def landing_height(self):
+        positions = Tetrimino.getPositions(*self.piece.getState())
+        heights = [20 - y for x, y in positions]
+        return (max(heights) + min(heights)) / 2
 
-            # find the highest filled tile in this column
-            column = grid[:, x]
-            highest_grid_tile = -1
-            for column_idx, tile in enumerate(column):
-                if tile == 1:
-                    highest_grid_tile = column_idx
-                    break
+    def eroded_piece_cells(self):
+        positions = Tetrimino.getPositions(*self.piece.getState())
+        rowContainCurrentPiece = defaultdict(int)
+        for x, y in positions:
+            rowContainCurrentPiece[y + 2] += 1
 
-            grid_tile_height = 20 - highest_grid_tile
-            landing_height = current_height - grid_tile_height
-
-            max_height = np.maximum(landing_height, max_height)
-            min_height = np.minimum(landing_height, min_height)
-
-        return (max_height + min_height) / 2
-
-    @staticmethod
-    def eroded_piece_cells(grid, piece_positions):
-        unique_y_values = set()
-        for x, y in piece_positions:
-            unique_y_values.add(y)
-
-        total_eroded_lines = 0
-        for y in unique_y_values:
-            if sum(grid[y, :]) == len(grid[0]):
-                total_eroded_lines += 1
+        lines_cleared = 0
+        current_piece_cleared = 0
+        for y in rowContainCurrentPiece:
+            if sum(self.grid[y, :]) == len(self.grid[0]):
+                lines_cleared += 1
+                current_piece_cleared += rowContainCurrentPiece[y]
         
-        return total_eroded_lines
+        return lines_cleared * current_piece_cleared
 
 
 # test from "Why Most Decisions are Easy in Tetris Paper"
-# grid = np.array([
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
-#     [0, 0, 1, 1, 1, 1, 1, 0, 1, 0],
-#     [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
-#     [1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
-#     [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
-#     [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-#     [0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
-#     [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-#     [0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-# ])
+board = TetrisBoard()
+board.board = np.array([
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 0, 1, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+])
 
-# piece = [(4, 0), (4, 1), (4, 2), (4, 3)]
+piece = Tetrimino("I", position=(4, 10) , orientation=0)
 
-# assert Features.num_holes(grid) == 12
-# assert Features.rows_with_holes(grid) == 6
-# # assert Features.cumulative_wells(grid) == 26, "Features.cumulative_wells() = " + str(Features.cumulative_wells(grid))
-# assert Features.column_transitions(grid) == 20
-# # assert Features.row_transitions(grid) == 56, "Features.row_transitions() = " + str(Features.row_transitions(grid))
-# assert Features.hole_depth(grid) == 12
-# assert Features.landing_height(grid, piece) == 10.5, "Features.landing_height() = " + str(Features.landing_height(grid, piece))
-# assert Features.eroded_piece_cells(grid, piece) == 0
+features = Features(board, piece)
+
+assert features.num_holes() == 12
+assert features.rows_with_holes() == 6
+assert features.cumulative_wells() == 26
+assert features.column_transitions() == 20
+# assert features.row_transitions() == 56
+assert features.hole_depth() == 12
+assert features.landing_height() == 10.5
+assert features.eroded_piece_cells() == 0
