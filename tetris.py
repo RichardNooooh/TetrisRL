@@ -217,6 +217,7 @@ class TetrisEnv:
     def display(self):
         self.board.displayWithPiece(self.current_piece)
 
+    @staticmethod
     def onePieceSearch(start_tetrimino, board): # TODO maybe add twoPieceSearch at some point
         visited = set()
         queue = deque([BFSNode(deepcopy(start_tetrimino), [])])
@@ -266,6 +267,28 @@ class TetrisEnv:
             return self.getEnvState(), cleared_lines, self.game_over
         
         return self.getEnvState(), 0, self.game_over
+    
+        # similar to OpenAI's gym interface
+    def group_step(self, next_state_tetrimino):
+        if self.game_over:
+            raise RuntimeError("TetrisEnv.step() was called without resetting the environment.")
+        
+        assert next_state_tetrimino[0].piece_type == self.current_piece.piece_type
+
+        # piece_transformed = Tetrimino.transform(self.current_piece, self.board, action)
+        self.board.placePiece(next_state_tetrimino[0])
+        cleared_lines = self.board.clearLines()
+        # print(cleared_lines)
+        
+        self.current_piece = self.next_piece
+        self.next_piece = self.spawnNewPiece()
+
+        if not self.board.canPlace(self.current_piece):
+            self.game_over = True # TODO reward function
+            return self.getEnvState(), -1000, self.game_over
+        
+        return self.getEnvState(), cleared_lines, self.game_over
+
 
 
 
