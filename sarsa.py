@@ -39,7 +39,6 @@ def SarsaLambda(
     # gui.linkGameEnv(env)
     # gui.runOnce()
     # actions = list(ACTION)
-    lastDrop = [0]
 
     def epsilon_greedy_policy(board, w, group_actions, epsilon=0.01):
         nA = len(group_actions)
@@ -48,13 +47,7 @@ def SarsaLambda(
         if np.random.rand() < epsilon:
             return np.random.randint(nA)
         else:
-            choice = np.argmax(Q)
-            if lastDrop[0] > 100:
-                choice = 0
-                lastDrop[0] = 0
-            else:
-                lastDrop[0] += 1
-            return choice
+            return np.argmax(Q)
 
     w = np.zeros(8)
     

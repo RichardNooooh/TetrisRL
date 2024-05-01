@@ -1,5 +1,5 @@
 from agent import HandwrittenBCTSAgent
-# import multiprocessing
+import multiprocessing
 from tqdm import tqdm
 
 agent = HandwrittenBCTSAgent(2, 3, "bcts_testdata.csv")
