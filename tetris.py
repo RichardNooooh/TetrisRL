@@ -279,15 +279,18 @@ class TetrisEnv:
         self.board.placePiece(next_state_tetrimino[0])
         cleared_lines = self.board.clearLines()
         # print(cleared_lines)
+
+        info = dict()
+        info["cleared_lines"] = cleared_lines
         
         self.current_piece = self.next_piece
         self.next_piece = self.spawnNewPiece()
 
         if not self.board.canPlace(self.current_piece):
             self.game_over = True # TODO reward function
-            return self.getEnvState(), -1000, self.game_over
+            return self.getEnvState(), -1000, self.game_over, info
         
-        return self.getEnvState(), cleared_lines, self.game_over
+        return self.getEnvState(), cleared_lines, self.game_over, info
 
 
 
