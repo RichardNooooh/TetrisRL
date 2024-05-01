@@ -36,8 +36,8 @@ def evaluatePositions(landing_positions, board):
     bestActions = None
     for propose_piece, actions in landing_positions:
         features = Features(board, propose_piece)
-        landing_height = -12.63 * features.landing_height()
-        eroded_piece_cells = 6.60 * features.eroded_piece_cells()
+        landing_height = -12.63 * features.landing_height(propose_piece)
+        eroded_piece_cells = 6.60 * features.eroded_piece_cells(propose_piece)
         row_transitions = -9.92 * features.row_transitions()
         column_transitions = -19.77 * features.column_transitions()
         num_holes = -13.08 * features.num_holes()

@@ -6,7 +6,7 @@ from tetrisgui import TetrisGUI
 from feature import Features
 
 def feature_vector(board, propose_piece):
-    features = Features(board, True)
+    features = Features(board, propose_piece, True)
 
     num_holes = features.num_holes()
     rows_with_holes = features.rows_with_holes()
@@ -67,18 +67,18 @@ def SarsaLambda(
         group_actions = TetrisEnv.onePieceSearch(piece_state, board)
         done = False
         a = epsilon_greedy_policy(board, w, group_actions)
-        x = feature_vector(board, piece_state)
+        x = feature_vector(board, group_actions[a][0])
         z = np.zeros(8)
         Q_old = 0
         while not done:
-            (board, piece_state, _), r, done = env.group_step(group_actions[a])
+            (board, piece_state, _), r, done, _ = env.group_step(group_actions[a])
             group_actions = TetrisEnv.onePieceSearch(piece_state, board)
 
             if r > 0:
                 total_cleared += r
             a_prime = epsilon_greedy_policy(board, w, group_actions)
             Q = np.dot(w, x)
-            x_prime = feature_vector(board, piece_state)
+            x_prime = feature_vector(board, group_actions[a_prime][0])
             Q_prime = np.dot(w, x_prime)
 
             delta = r + gamma * Q_prime - Q

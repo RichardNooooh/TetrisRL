@@ -4,8 +4,10 @@ from tetris import TetrisBoard, Tetrimino, ACTION
 from collections import defaultdict 
 
 class Features:
-    def __init__(self, board, norm):
-        self.board = board
+    def __init__(self, board, propose_piece, norm=False):
+        if propose_piece:
+            board = deepcopy(board)
+            board.placePiece(propose_piece)
         self.grid = board.board
         self.norm = norm # bool
 
@@ -141,9 +143,6 @@ class Features:
         return land_height
     
     def eroded_piece_cells(self, propose_piece):
-        board = deepcopy(self.board)
-        board.placePiece(propose_piece)
-        grid = board.board
         positions = Tetrimino.getPositions(*propose_piece.getState())
         rowContainCurrentPiece = defaultdict(int)
         for x, y in positions:
@@ -152,7 +151,7 @@ class Features:
         lines_cleared = 0
         current_piece_cleared = 0
         for y in rowContainCurrentPiece:
-            if sum(grid[y, :]) == len(grid[0]):
+            if sum(self.grid[y, :]) == len(self.grid[0]):
                 lines_cleared += 1
                 current_piece_cleared += rowContainCurrentPiece[y]
         
