@@ -254,18 +254,18 @@ class TetrisEnv:
         if not piece_transformed and action == ACTION.SOFT_DROP:
             self.board.placePiece(self.current_piece)
             cleared_lines = self.board.clearLines()
-            print(cleared_lines)
+            # print(cleared_lines)
             
             self.current_piece = self.next_piece
             self.next_piece = self.spawnNewPiece()
 
             if not self.board.canPlace(self.current_piece):
                 self.game_over = True # TODO reward function
-                return self.getEnvState(), None, self.game_over
+                return self.getEnvState(), -1000, self.game_over
             
-            return self.getEnvState(), None, self.game_over
+            return self.getEnvState(), cleared_lines, self.game_over
         
-        return self.getEnvState(), None, self.game_over
+        return self.getEnvState(), 0, self.game_over
 
 
 

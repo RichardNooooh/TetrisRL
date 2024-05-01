@@ -1,12 +1,20 @@
 import numpy as np
 from copy import deepcopy
-from tetris import TetrisBoard, Tetrimino
+from tetris import TetrisBoard, Tetrimino, ACTION
 from collections import defaultdict 
 
 class Features:
-    def __init__(self, board, propose_piece):
+    def __init__(self, board, propose_piece, action=None):
         board = deepcopy(board)
-        board.placePiece(propose_piece)
+        self.placed = False
+        if action: 
+            piece_transformed = Tetrimino.transform(propose_piece, board, action)
+            if not piece_transformed:
+                self.placed = True
+                board.placePiece(propose_piece)
+        else:
+            self.placed = True
+            board.placePiece(propose_piece)
         self.grid = board.board
         self.piece = propose_piece
 
@@ -108,9 +116,11 @@ class Features:
         return depth
     
     def landing_height(self):
-        positions = Tetrimino.getPositions(*self.piece.getState())
-        heights = [20 - y for x, y in positions]
-        return (max(heights) + min(heights)) / 2
+        if self.placed: 
+            positions = Tetrimino.getPositions(*self.piece.getState())
+            heights = [20 - y for x, y in positions]
+            return (max(heights) + min(heights)) / 2
+        return 0
 
     def eroded_piece_cells(self):
         positions = Tetrimino.getPositions(*self.piece.getState())
@@ -126,6 +136,28 @@ class Features:
                 current_piece_cleared += rowContainCurrentPiece[y]
         
         return lines_cleared * current_piece_cleared
+    
+    def get_heights(self):
+        heights = np.zeros(10)
+        for col in range(self.grid.shape[1]):
+            for row in range(2, self.grid.shape[0]):
+                if self.grid[row, col] == 1:
+                    heights[col] = 22 - row
+                    break
+        return heights
+    
+    def get_height_differences(self):
+        difference = np.zeros(9)
+        prevHeight = -1
+        for col in range(self.grid.shape[1]):
+            for row in range(2, self.grid.shape[0]):
+                if self.grid[row, col] == 1:
+                    height = 22 - row
+                    if prevHeight != -1:
+                        difference[col - 1] = height - prevHeight
+                    prevHeight = height
+                    break
+        return difference
 
 
 # test from "Why Most Decisions are Easy in Tetris Paper"
@@ -165,5 +197,5 @@ assert features.cumulative_wells() == 26
 assert features.column_transitions() == 20
 # assert features.row_transitions() == 56
 assert features.hole_depth() == 12
-assert features.landing_height() == 10.5
+assert features.landing_height() == 10.5, print(features.landing_height())
 assert features.eroded_piece_cells() == 0
