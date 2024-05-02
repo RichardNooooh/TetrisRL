@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import IntEnum
 import numpy as np
 from collections import deque
 from copy import deepcopy
@@ -40,7 +40,13 @@ TETRIS_DEFAULT_ORIENTATIONS = {
     'T': 2, 'J': 3, 'Z': 0, 'O': 0, 'S': 0, 'L': 1, 'I': 1
 }
 
-ACTION = Enum('ACTION', ["ROTATE_CW", "ROTATE_CCW", "MOVE_RIGHT", "MOVE_LEFT", "SOFT_DROP"])
+# ACTION = IntEnum('ACTION', ["ROTATE_CW", "ROTATE_CCW", "MOVE_RIGHT", "MOVE_LEFT", "SOFT_DROP"])
+class ACTION(IntEnum):
+    SOFT_DROP = 0
+    MOVE_LEFT = 1
+    MOVE_RIGHT = 2
+    ROTATE_CW = 3
+    ROTATE_CCW = 4
 
 class Tetrimino:
     def __init__(self, piece_type, position=(5, 0), orientation=0):
@@ -57,24 +63,29 @@ class Tetrimino:
 
     def getState(self):
         return self.piece_type, self.position, self.orientation
-    
-    @staticmethod
-    def transform(tetrimino, board, action):
-        piece_type, new_position, new_orientation = tetrimino.getState()
 
+    @staticmethod
+    def actionMap(action, position, orientation, piece_type):
         match action:
             case ACTION.MOVE_LEFT:
-                new_position = (new_position[0] - 1, new_position[1])
+                position = (position[0] - 1, position[1])
             case ACTION.MOVE_RIGHT:
-                new_position = (new_position[0] + 1, new_position[1])
+                position = (position[0] + 1, position[1])
             case ACTION.ROTATE_CCW:
-                new_orientation = (new_orientation - 1) % TETRIS_NUM_ORIENTATIONS[piece_type]
+                orientation = (orientation - 1) % TETRIS_NUM_ORIENTATIONS[piece_type]
             case ACTION.ROTATE_CW:
-                new_orientation = (new_orientation + 1) % TETRIS_NUM_ORIENTATIONS[piece_type]
+                orientation = (orientation + 1) % TETRIS_NUM_ORIENTATIONS[piece_type]
             case ACTION.SOFT_DROP:
-                new_position = (new_position[0], new_position[1] + 1)
+                position = (position[0], position[1] + 1)
             case _:
                 raise RuntimeError("Tetrimino.transform() received an unknown action: " + str(action))
+        return position, orientation, piece_type
+
+    @staticmethod
+    def transform(tetrimino, board, action):
+        piece_type, position, orientation = tetrimino.getState()
+
+        new_position, new_orientation, piece_type = Tetrimino.actionMap(action, position, orientation, piece_type)
             
         if Tetrimino.isValidMove(board, piece_type, new_position, new_orientation):
             tetrimino.position = new_position
@@ -149,15 +160,15 @@ class TetrisBoard:
     def display(self):
         print(self.board[2:, :])
 
-    def displayWithPiece(self, piece):
-        board_copy = self.board.copy()
+    def getBoardWithPiece(self, piece):
+        board_copy = self.board.copy().astype(dtype=np.float32)
 
         tile_positions = Tetrimino.getPositions(*piece.getState())
         for tile_position in tile_positions:
             tile_x, tile_y = tile_position
-            board_copy[tile_y+2, tile_x] = 2
+            board_copy[tile_y+2, tile_x] = 0.5
 
-        print(board_copy[2:, :])
+        return board_copy[2:, :]
 
 # # Example of usage
 # board = TetrisBoard()
@@ -251,24 +262,27 @@ class TetrisEnv:
         if self.game_over:
             raise RuntimeError("TetrisEnv.step() was called without resetting the environment.")
         
+        info = dict()
+
         piece_transformed = Tetrimino.transform(self.current_piece, self.board, action)
         if not piece_transformed and action == ACTION.SOFT_DROP:
             self.board.placePiece(self.current_piece)
             cleared_lines = self.board.clearLines()
-            # print(cleared_lines)
+            info["cleared_lines"] = cleared_lines
             
             self.current_piece = self.next_piece
             self.next_piece = self.spawnNewPiece()
 
             if not self.board.canPlace(self.current_piece):
-                self.game_over = True # TODO reward function
-                return self.getEnvState(), -1000, self.game_over
+                self.game_over = True
+                return self.getEnvState(), -10000, self.game_over, info
             
-            return self.getEnvState(), cleared_lines, self.game_over
-        
-        return self.getEnvState(), 0, self.game_over
+            return self.getEnvState(), cleared_lines, self.game_over, info
+
+        info["cleared_lines"] = 0        
+        return self.getEnvState(), -0.01, self.game_over, info
     
-        # similar to OpenAI's gym interface
+    # similar to OpenAI's gym interface
     def group_step(self, next_state_tetrimino):
         if self.game_over:
             raise RuntimeError("TetrisEnv.step() was called without resetting the environment.")
