@@ -2,6 +2,7 @@ from enum import IntEnum
 import numpy as np
 from collections import deque
 from copy import deepcopy
+import time
 
 # positions based on NES Tetris
 TETRIS_TILE_POSITIONS = {
@@ -140,6 +141,7 @@ class TetrisBoard:
 
             # if the row is empty, then the playfield above should be empty
             if num_tiles_in_row == 0:
+                y += 1
                 break
             
             # completed line
@@ -150,27 +152,36 @@ class TetrisBoard:
                 self.board[y + lines_cleared + 2, :] = self.board[y + 2]
 
         # clear the rows above the cleared board
-        self.board[:(y + lines_cleared + 3), :] = 0
+        self.board[:(y + lines_cleared + 2), :] = 0
 
         return lines_cleared
 
     def reset(self):
         self.board.fill(0)
     
-    def display(self):
-        print(self.board[2:, :])
+    def getBoard(self):
+        return self.board[2:, :].copy()
 
     def getBoardWithPiece(self, piece):
-        board_copy = self.board.copy().astype(dtype=np.float32)
+        board_copy = self.getBoard().astype(dtype=np.float32)
 
         tile_positions = Tetrimino.getPositions(*piece.getState())
         for tile_position in tile_positions:
             tile_x, tile_y = tile_position
-            board_copy[tile_y+2, tile_x] = 0.5
+            board_copy[tile_y, tile_x] = 0.5
 
-        return board_copy[2:, :]
+        return board_copy
+    
+    @staticmethod
+    def placePieceInBoard(board, piece):
+        board = board.astype(dtype=np.float32)
+        tile_positions = Tetrimino.getPositions(*piece.getState())
+        for tile_position in tile_positions:
+            tile_x, tile_y = tile_position
+            board[tile_y, tile_x] = 0.5
 
-# # Example of usage
+        return board
+
 # board = TetrisBoard()
 # board.board = np.array(
 # [[0,0,0,0,0,0,0,0,0,0],
@@ -210,7 +221,7 @@ class TetrisEnv:
         self.board = TetrisBoard()
         self.current_piece, self.next_piece = self.spawnNewPiece(), self.spawnNewPiece()
         self.game_over = False
-
+    
     def getEnvState(self):
         return self.board, self.current_piece, self.next_piece
 
@@ -262,10 +273,22 @@ class TetrisEnv:
         if self.game_over:
             raise RuntimeError("TetrisEnv.step() was called without resetting the environment.")
         
+        # self.step_counter += 1
+
         info = dict()
+        info["placed_piece"] = None
+        info["cleared_lines"] = 0
 
         piece_transformed = Tetrimino.transform(self.current_piece, self.board, action)
+
+        # after movement, if we didn't already try to soft drop, fall by 1
+        # if action != ACTION.SOFT_DROP and self.step_counter % 10 == 0:
+        #     piece_transformed = Tetrimino.transform(self.current_piece, self.board, ACTION.SOFT_DROP)
+        #     action = ACTION.SOFT_DROP
+
         if not piece_transformed and action == ACTION.SOFT_DROP:
+            info["placed_piece"] = self.current_piece, deepcopy(self.board)
+
             self.board.placePiece(self.current_piece)
             cleared_lines = self.board.clearLines()
             info["cleared_lines"] = cleared_lines
@@ -277,20 +300,31 @@ class TetrisEnv:
                 self.game_over = True
                 return self.getEnvState(), -10000, self.game_over, info
             
-            return self.getEnvState(), cleared_lines, self.game_over, info
+            return self.getEnvState(), cleared_lines*10, self.game_over, info
 
-        info["cleared_lines"] = 0        
-        return self.getEnvState(), -0.01, self.game_over, info
+        
+        return self.getEnvState(), 0.001, self.game_over, info
     
     # similar to OpenAI's gym interface
-    def group_step(self, next_state_tetrimino):
+    def group_step(self, next_state_tetrimino, gui=None):
         if self.game_over:
             raise RuntimeError("TetrisEnv.step() was called without resetting the environment.")
         
-        assert next_state_tetrimino[0].piece_type == self.current_piece.piece_type
+        if gui:
+            actions = next_state_tetrimino[1]
+            for action in actions:
+                succeeded = Tetrimino.transform(self.current_piece, self.board, action)
+                assert succeeded
+                gui.draw()
+                time.sleep(0.02)
 
         # piece_transformed = Tetrimino.transform(self.current_piece, self.board, action)
+
+        assert next_state_tetrimino[0].piece_type == self.current_piece.piece_type
         self.board.placePiece(next_state_tetrimino[0])
+
+        if gui: gui.draw()
+
         cleared_lines = self.board.clearLines()
         # print(cleared_lines)
 
@@ -302,9 +336,9 @@ class TetrisEnv:
 
         if not self.board.canPlace(self.current_piece):
             self.game_over = True # TODO reward function
-            return self.getEnvState(), -1000, self.game_over, info
+            return self.getEnvState(), -10000, self.game_over, info
         
-        return self.getEnvState(), cleared_lines, self.game_over, info
+        return self.getEnvState(), 0.01 + 10*cleared_lines, self.game_over, info
 
 
 
