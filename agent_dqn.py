@@ -165,6 +165,7 @@ class DQNAgent(BaseAgent):
 
 
     def run_episode(self):
+        # A high level overview of this algorithm is shown in `/docs/imgs/dqn_algo.png`
         board, piece, _ = self.env.reset()
         
         if self.gui: self.gui.runOnce()
@@ -265,7 +266,7 @@ class DQNAgent(BaseAgent):
 
             # periodically update target 
             if self.total_actions_survived % self.TARGET_UPDATE == 0:
-                print("DQNAgent |     Updating Target Model,", target_val)
+                print("DQNAgent |     Updating Target Model")
                 q_target = deepcopy(self.q_model).to(self.device)
                 torch.save(q_target, self.model_file)
                 q_target.eval()
@@ -285,3 +286,4 @@ if __name__ == "__main__":
     agent = DQNAgent()
     agent.train()
     agent.save_network()
+    agent.record_data()
