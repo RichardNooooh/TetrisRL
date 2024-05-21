@@ -1,7 +1,7 @@
 from train_dqn import DQNNetwork
 import torch
 from tetris import TetrisEnv, TetrisBoard
-from tetrisgui import TetrisGUI
+from tetris.gui import TetrisGUI
 import numpy as np
 
 

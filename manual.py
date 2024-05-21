@@ -1,6 +1,7 @@
 import random
-from tetris import TetrisBoard, Tetrimino, TetrisEnv, ACTION
-from tetrisgui import TetrisGUI
+from tetris.env import TetrisEnv
+from tetris.state import ACTION
+from tetris.gui import TetrisGUI
 
 def runTetrisGame():
     env = TetrisEnv()
