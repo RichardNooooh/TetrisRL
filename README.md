@@ -46,7 +46,7 @@ Since there are an absurd number of states in $\mathcal{S}$ (~$2^{200}$ states f
 
 ### Rewards: $\mathcal{R}$
 For our abstracted action space, we have the following reward function:
-- $+10\times\texttt{num\_lines\_cleared}$
+- $+10\times\texttt{numlinescleared}$
 - $-10000$ for ending the episode
 - $+0.01$ for each group action
 
